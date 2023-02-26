@@ -11,7 +11,7 @@ There are many ways to RL users, many policies, and each user may have different
 3. Linear backoff of 30% for 3 minutes
    - If user hit RL, for next 3 minutes they are limited to 7000 RPM
    - If they hit RL again, each time will linear backoff (Last RPM \* 70%)
-4. Distributed rate limiter service that needs synchronization (3 sec)
+4. Distributed rate limiter service that needs synchronization
 5. BONUS - deploy via minikube
 6. BONUS - testing
 
@@ -62,9 +62,9 @@ Our logic for RL is quite simple:
     if (TR >= R && Tn - T1 < T) return false
     else return true
 
-    Everything is accessible locally, but TR and T1 is difficult to determine. Since our system is distributed, TR and T1 needs to be global. Since we are synching, we can determine TR with a small tolerable rate of error (10,000 vs 10,050).
+Everything is accessible locally, but TR and T1 is difficult to determine. Since our system is distributed, TR and T1 needs to be global. Since we are synching, we can determine TR with a small tolerable rate of error (10,000 vs 10,050).
 
-    But "what is global T1?". To answer this question, not only do we track the LL for each RL Node replicate separately, we also need to have a min heap for tracking the T1 for N # of LL.
+But "what is global T1?". To answer this question, not only do we track the LL for each RL Node replicate separately, we also need to have a min heap for tracking the T1 for N # of LL.
 
 ## Rate Module
 
