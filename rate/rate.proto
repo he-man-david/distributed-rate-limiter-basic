@@ -1,6 +1,6 @@
 syntax = "proto3";
 package rate;
-option go_package = "github.com/he-man-david/distributed-rate-limiter-basic/api/gRPC/rate";
+option go_package = "github.com/he-man-david/distributed-rate-limiter-basic/rate";
 
 message AllowRequestParam {
   int32 api_key = 1;
