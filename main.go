@@ -5,7 +5,7 @@ import (
 	"log"
 	"net"
 
-	"github.com/he-man-david/distributed-rate-limiter-basic/rate"
+	"github.com/he-man-david/distributed-rate-limiter-basic/proxy"
 	"google.golang.org/grpc"
 )
 
@@ -18,12 +18,11 @@ func main() {
 		log.Fatalf("[main] TCP failed to listen: %v", err)
 	}
 
-	s := rate.RateLimiter{}
-
 	grpcServer := grpc.NewServer()
 
-	rate.RegisterRateLimiterServer(grpcServer, &s)
-
+	proxyImpl := proxy.NewProxy();
+	proxy.RegisterProxyServer(grpcServer, proxyImpl)
+	
 	if err := grpcServer.Serve(lis); err != nil {
 		log.Fatalf("[main] gRPC failed to serve: %s", err)
 	}

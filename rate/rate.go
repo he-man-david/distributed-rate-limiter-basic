@@ -1,18 +1,16 @@
 package rate
 
 import (
+	"context"
 	"log"
-
-	"golang.org/x/net/context"
 )
 
 type RateLimiter struct {
-	UnimplementedRateLimiterServer
 }
 
-func (r *RateLimiter) AllowRequest(ctx context.Context, in *AllowRequestParam) (*AllowRequestResponse, error) {
-	log.Printf("[RateLimiter] rate limiting key: %d", in.ApiKey)
+func (r *RateLimiter) allowRequest(ctx context.Context, apiKey int32) (bool, error) {
+	log.Printf("[rateLimiter] : %d", apiKey)
 	//TODO: Jaser this is the Rate Module
 	// We want to check if we can allow this request, return T/F below
-	return &AllowRequestResponse{Res: true}, nil
+	return true, nil
 }
