@@ -41,10 +41,12 @@ func (t *ThreadSafeLL) GetT1() *list.Element {
 }
 
 // remove T1 (earliest time)
-func (t *ThreadSafeLL) TakeT1(value int32) {
+func (t *ThreadSafeLL) TakeT1(value int32) *list.Element {
     t.mutex.Lock()
     defer t.mutex.Unlock()
-    t.list.Remove(t.GetT1())
+	t1 := t.GetT1()
+    t.list.Remove(t1)
+	return t1
 }
 
 
@@ -97,6 +99,8 @@ func (t *ThreadSafeMinHeap) GetT1() *list.Element {
 
 // wrapper element for linked list elements
 // below are interface func required by container/heap implementation
+// Our heap is just an array of elements, and we using container/heap
+// heap.Push(h.heap, t1) to perform heapify. Similar to Java's heap
 type heapElements []*list.Element
 
 func (e heapElements) Len() int {

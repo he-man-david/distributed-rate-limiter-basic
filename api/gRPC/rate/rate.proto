@@ -1,0 +1,15 @@
+syntax = "proto3";
+package rate;
+option go_package = "github.com/he-man-david/distributed-rate-limiter-basic/api/gRPC/rate";
+
+message AllowRequestParam {
+  int32 api_key = 1;
+}
+
+message AllowRequestResponse {
+  bool res = 1;
+}
+
+service RateLimiter {
+  rpc allowRequest(AllowRequestParam) returns (AllowRequestResponse) {}
+}
