@@ -8,20 +8,20 @@ import (
 )
 
 type Proxy struct {
-	rate.RateLimiter
+	ratelimiter *rate.RateLimiter
 	UnimplementedProxyServer
 }
 
 func NewProxy() *Proxy {
-	rl := rate.RateLimiter{}
-	unimplProxyS := UnimplementedProxyServer{}
-	return &Proxy{rl, unimplProxyS}
+	rl := &rate.RateLimiter{}
+	return &Proxy{ratelimiter: rl}
 }
-
 
 func (p *Proxy) AllowRequest(ctx context.Context, req *AllowRequestReq) (*AllowRequestResp, error) {
 	log.Printf("[Proxy] rate limiting key: %d", req.ApiKey)
-	//TODO: Jaser this is the Rate Module
-	// We want to check if we can allow this request, return T/F below
-	return &AllowRequestResp{Res: true}, nil
+	res, err := p.ratelimiter.AllowRequest(ctx, req.ApiKey)
+	if err != nil {
+		return nil, err
+	}
+	return &AllowRequestResp{Res: res}, nil
 }

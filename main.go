@@ -10,7 +10,6 @@ import (
 )
 
 func main() {
-
 	fmt.Println("Starting Rate Limiter Service....")
 
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 9000))
