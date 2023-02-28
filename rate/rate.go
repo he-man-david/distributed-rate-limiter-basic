@@ -6,11 +6,15 @@ import (
 )
 
 type RateLimiter struct {
+	UnimplementedRateServer
 }
 
-func (r *RateLimiter) AllowRequest(ctx context.Context, apiKey int32) (bool, error) {
-	log.Printf("[rateLimiter] : %d", apiKey)
-	//TODO: Jaser this is the Rate Module
-	// We want to check if we can allow this request, return T/F below
-	return true, nil
+func NewRatelimiterImpl() *RateLimiter {
+	return &RateLimiter{}
+}
+
+func (r *RateLimiter) AllowRequest(ctx context.Context, req *AllowRequestReq) (*AllowRequestResp, error) {
+	log.Printf("[RateLimiter] rate limiting key: %d", req.ApiKey)
+	// TODO: Jaser add rate limiting here
+	return &AllowRequestResp{Res: true}, nil
 }

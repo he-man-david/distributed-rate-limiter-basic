@@ -1,0 +1,16 @@
+syntax = "proto3";
+package synchronization;
+option go_package = "github.com/he-man-david/distributed-rate-limiter-basic/synchronization";
+
+message SyncMsg {
+    int64 api_key = 1;
+    int64 timestamp = 2;
+}
+
+message SyncAck {
+    bool ack = 1;
+}
+
+service Sync {
+    rpc BroadcastService(stream SyncMsg) returns (SyncAck) {};
+}

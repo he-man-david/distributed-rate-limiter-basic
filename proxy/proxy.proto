@@ -2,18 +2,15 @@ syntax = "proto3";
 package proxy;
 option go_package = "github.com/he-man-david/distributed-rate-limiter-basic/proxy";
 
-message AllowRequestReq {
-  int32 api_key = 1;
+message RegisterNodeReq {
+  int64 rate_limiter_id = 1;
+  int64 port = 2;
 }
 
-message AllowRequestResp {
+message RegisterNodeResp {
   bool res = 1;
 }
 
 service Proxy {
-  rpc allowRequest(AllowRequestReq) returns (AllowRequestResp) {}
+  rpc RegisterNode(RegisterNodeReq) returns (RegisterNodeResp) {};
 }
-
-// protoc --go_out=. --go_opt=paths=source_relative \
-//     --go-grpc_out=. --go-grpc_opt=paths=source_relative \
-//     proxy.proto

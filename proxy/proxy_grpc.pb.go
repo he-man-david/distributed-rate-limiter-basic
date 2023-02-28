@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.2.0
 // - protoc             v3.21.12
-// source: proxy.proto
+// source: proxy/proxy.proto
 
 package proxy
 
@@ -22,7 +22,7 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ProxyClient interface {
-	AllowRequest(ctx context.Context, in *AllowRequestReq, opts ...grpc.CallOption) (*AllowRequestResp, error)
+	RegisterNode(ctx context.Context, in *RegisterNodeReq, opts ...grpc.CallOption) (*RegisterNodeResp, error)
 }
 
 type proxyClient struct {
@@ -33,9 +33,9 @@ func NewProxyClient(cc grpc.ClientConnInterface) ProxyClient {
 	return &proxyClient{cc}
 }
 
-func (c *proxyClient) AllowRequest(ctx context.Context, in *AllowRequestReq, opts ...grpc.CallOption) (*AllowRequestResp, error) {
-	out := new(AllowRequestResp)
-	err := c.cc.Invoke(ctx, "/proxy.Proxy/allowRequest", in, out, opts...)
+func (c *proxyClient) RegisterNode(ctx context.Context, in *RegisterNodeReq, opts ...grpc.CallOption) (*RegisterNodeResp, error) {
+	out := new(RegisterNodeResp)
+	err := c.cc.Invoke(ctx, "/proxy.Proxy/RegisterNode", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -46,7 +46,7 @@ func (c *proxyClient) AllowRequest(ctx context.Context, in *AllowRequestReq, opt
 // All implementations must embed UnimplementedProxyServer
 // for forward compatibility
 type ProxyServer interface {
-	AllowRequest(context.Context, *AllowRequestReq) (*AllowRequestResp, error)
+	RegisterNode(context.Context, *RegisterNodeReq) (*RegisterNodeResp, error)
 	mustEmbedUnimplementedProxyServer()
 }
 
@@ -54,8 +54,8 @@ type ProxyServer interface {
 type UnimplementedProxyServer struct {
 }
 
-func (UnimplementedProxyServer) AllowRequest(context.Context, *AllowRequestReq) (*AllowRequestResp, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method AllowRequest not implemented")
+func (UnimplementedProxyServer) RegisterNode(context.Context, *RegisterNodeReq) (*RegisterNodeResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RegisterNode not implemented")
 }
 func (UnimplementedProxyServer) mustEmbedUnimplementedProxyServer() {}
 
@@ -70,20 +70,20 @@ func RegisterProxyServer(s grpc.ServiceRegistrar, srv ProxyServer) {
 	s.RegisterService(&Proxy_ServiceDesc, srv)
 }
 
-func _Proxy_AllowRequest_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(AllowRequestReq)
+func _Proxy_RegisterNode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RegisterNodeReq)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ProxyServer).AllowRequest(ctx, in)
+		return srv.(ProxyServer).RegisterNode(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/proxy.Proxy/allowRequest",
+		FullMethod: "/proxy.Proxy/RegisterNode",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ProxyServer).AllowRequest(ctx, req.(*AllowRequestReq))
+		return srv.(ProxyServer).RegisterNode(ctx, req.(*RegisterNodeReq))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -96,10 +96,10 @@ var Proxy_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*ProxyServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "allowRequest",
-			Handler:    _Proxy_AllowRequest_Handler,
+			MethodName: "RegisterNode",
+			Handler:    _Proxy_RegisterNode_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "proxy.proto",
+	Metadata: "proxy/proxy.proto",
 }

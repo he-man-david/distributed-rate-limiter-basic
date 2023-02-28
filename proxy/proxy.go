@@ -1,27 +1,27 @@
 package proxy
 
 import (
-	"log"
+	"context"
 
 	"github.com/he-man-david/distributed-rate-limiter-basic/rate"
-	"golang.org/x/net/context"
+	sync "github.com/he-man-david/distributed-rate-limiter-basic/synchronization"
 )
 
 type Proxy struct {
 	ratelimiter *rate.RateLimiter
+	sync		*sync.Sync
+
 	UnimplementedProxyServer
 }
 
-func NewProxy() *Proxy {
-	rl := &rate.RateLimiter{}
-	return &Proxy{ratelimiter: rl}
+func NewProxy(ratelimiter *rate.RateLimiter, sync *sync.Sync) *Proxy {
+	return &Proxy{ratelimiter: ratelimiter, sync: sync}
 }
 
-func (p *Proxy) AllowRequest(ctx context.Context, req *AllowRequestReq) (*AllowRequestResp, error) {
-	log.Printf("[Proxy] rate limiting key: %d", req.ApiKey)
-	res, err := p.ratelimiter.AllowRequest(ctx, req.ApiKey)
+func (p *Proxy) RegisterNode(ctx context.Context, node *RegisterNodeReq) (*RegisterNodeResp, error) {
+	err := p.sync.RegisterNode(ctx, node.RateLimiterId, node.Port)
 	if err != nil {
-		return nil, err
+		return &RegisterNodeResp{Res: false}, err
 	}
-	return &AllowRequestResp{Res: res}, nil
+	return &RegisterNodeResp{Res: true}, nil
 }

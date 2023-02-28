@@ -27,7 +27,7 @@ func (t *ThreadSafeLL) TotalReqs() int {
 }
 
 // add request to our current window, Tn
- func (t *ThreadSafeLL) AddReq(value int32) {
+ func (t *ThreadSafeLL) AddReq(value int64) {
     t.mutex.Lock()
     defer t.mutex.Unlock()
     t.list.PushBack(value)
@@ -41,7 +41,7 @@ func (t *ThreadSafeLL) GetT1() *list.Element {
 }
 
 // remove T1 (earliest time)
-func (t *ThreadSafeLL) TakeT1(value int32) *list.Element {
+func (t *ThreadSafeLL) TakeT1(value int64) *list.Element {
     t.mutex.Lock()
     defer t.mutex.Unlock()
 	t1 := t.GetT1()
@@ -108,7 +108,7 @@ func (e heapElements) Len() int {
 }
 
 func (e heapElements) Less(i, j int) bool {
-    return e[i].Value.(int32) < e[j].Value.(int32)
+    return e[i].Value.(int64) < e[j].Value.(int64)
 }
 
 func (e heapElements) Swap(i, j int) {

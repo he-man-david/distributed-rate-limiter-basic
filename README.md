@@ -39,11 +39,11 @@ With the above assumptions, since only our AG will be talking to RL (as it is an
 We will use the sliding-window RL strategy, implemented using linked list for each API_KEY. Reason is we want to prevent burst traffic from causing damage. The downside is higher memory costs, but that may be tolerable.
 
 - Each API_KEY will have it’s own sliding-window LL
-- Each LL node will just be timestamp, 32 bit integer, which is 4 bytes
+- Each LL node will just be timestamp, 64 bit integer, which is 8 bytes
 
 ## Calculations:
 
-If we assume that our rate limit is 10K request per minute per API_KEY, each rate limiter service will store 40KB of LL data per API_KEY. Which comes out to 40GB for 1mm users. Since our RL lives inside AG, and AG traffics will be partitioned via API_KEY, if the partition is 100K keys per AG, then our RL will only need 4GB of memory at the most.
+If we assume that our rate limit is 10K request per minute per API_KEY, each rate limiter service will store 80KB of LL data per API_KEY. Which comes out to 80GB for 1mm users. Since our RL lives inside AG, and AG traffics will be partitioned via API_KEY, if the partition is 100K keys per AG, then our RL will only need 8GB of memory at the most. If partition is 25k keys, then 2 GB, and so on so forth.
 
 ## High level design:
 
