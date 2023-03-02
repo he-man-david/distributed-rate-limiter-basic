@@ -1,0 +1,15 @@
+syntax = "proto3";
+package rate;
+option go_package = "github.com/he-man-david/distributed-rate-limiter-basic/src/server/rate";
+
+message AllowRequestReq {
+  int64 api_key = 1;
+}
+
+message AllowRequestResp {
+  bool res = 1;
+}
+
+service Rate {
+  rpc allowRequest(AllowRequestReq) returns (AllowRequestResp) {};
+}
