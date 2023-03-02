@@ -12,11 +12,11 @@ import (
 // the combine will constitute the current state/status of rate limiting for given KEY.
 type ThreadSafeLL struct {
 	list  *list.List
-	mutex sync.RWMutex
+	mutex *sync.RWMutex
 }
 
 func NewThreadSafeLL() *ThreadSafeLL {
-	return &ThreadSafeLL{list: list.New()}
+	return &ThreadSafeLL{list: list.New(), mutex: &sync.RWMutex{}}
 }
 
 // get total # of request in current window
@@ -44,7 +44,7 @@ func (t *ThreadSafeLL) GetT1() *list.Element {
 func (t *ThreadSafeLL) TakeT1() *list.Element {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
-	t1 := t.GetT1()
+	t1 := t.list.Front()
 	t.list.Remove(t1)
 	return t1
 }

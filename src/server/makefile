@@ -16,3 +16,7 @@ endif
 .PHONY: clean
 clean:
 	rm -f ./**/*.pb.go
+
+.PHONY: test
+test:
+	go test ./...
