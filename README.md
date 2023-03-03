@@ -105,3 +105,14 @@ This module will be responsible for handling incoming sync requests, and broadca
 1. Crash recovery, as that would need coordinator
 2. We are not building a AG
 3. Not dealing with partioning for now
+
+
+## Dev info
+
+### Server
+- the server is using protobuf schemas, so some of the code has to be generated using the make file before running server
+- run server from server folder with `go run main.go`
+
+### Client
+- client refers to code in server that is generated with make file, so run that before running it
+- run client from client folder with `go run testclient.go`
