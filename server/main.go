@@ -14,14 +14,14 @@ import (
 )
 
 var (
-	port = flag.Int("port", 9000, "the port number for the TCP server")
+	port = *(flag.Int("port", 9000, "the port number for the TCP server"))
 )
 
 func main() {
 	flag.Parse()
 
-	fmt.Printf("Starting Rate Limiter Service on port :: %d \n", int(*port))
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", *port))
+	fmt.Printf("Starting Rate Limiter Service on port :: %d \n", port)
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		log.Fatalf("[main] TCP failed to listen: %v", err)
 	}
