@@ -12,13 +12,43 @@ func TestThreadSafeLL(t *testing.T) {
 	linkedList.AddReq(2)
 	linkedList.AddReq(3)
 
-	if !(linkedList.TakeT1().Value.(int64) == 1) {
-		t.Errorf("Expected to find 3")
+	for _, expectedValue := range []int64{1, 2, 3} {
+		actualValue := linkedList.TakeT1().Value.(int64)
+		if !(actualValue == expectedValue) {
+			t.Errorf("Expected to find %d but found %d", expectedValue, actualValue)
+		}
 	}
-	if !(linkedList.TakeT1().Value.(int64) == 2) {
-		t.Errorf("Expected to find 2")
+	emptyListTakeT1 := linkedList.TakeT1()
+	if emptyListTakeT1 != nil {
+		t.Errorf("Expected to find %v but found %v", nil, emptyListTakeT1)
 	}
-	if !(linkedList.TakeT1().Value.(int64) == 3) {
-		t.Errorf("Expected to find 1")
+}
+
+func TestThreadSafeHeap(t *testing.T) {
+	linkedListOne := ratetracker.NewThreadSafeLL()
+	linkedListOne.AddReq(1)
+	linkedListOne.AddReq(2)
+	linkedListOne.AddReq(6)
+	linkedListOne.AddReq(10)
+
+	linkedListTwo := ratetracker.NewThreadSafeLL()
+	linkedListTwo.AddReq(3)
+	linkedListTwo.AddReq(8)
+	linkedListTwo.AddReq(9)
+
+	minHeap := ratetracker.NewThreadSafeMinHeap()
+	minHeap.AddList(linkedListOne.GetList())
+	minHeap.AddList(linkedListTwo.GetList())
+
+	for _, expectedValue := range []int64{1, 2, 3, 6, 8, 9, 10} {
+		actualValue := minHeap.TakeT1()
+		if !(actualValue == expectedValue) {
+			t.Errorf("Expected to find %d but found %d", expectedValue, actualValue)
+		}
+	}
+
+	emptyHeapTakeT1 := minHeap.TakeT1()
+	if emptyHeapTakeT1 != -1 {
+		t.Errorf("Expected to find %d but found %d", -1, emptyHeapTakeT1)
 	}
 }

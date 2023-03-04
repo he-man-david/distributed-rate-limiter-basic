@@ -45,8 +45,15 @@ func (t *ThreadSafeLL) TakeT1() *list.Element {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 	t1 := t.list.Front()
+	if t1 == nil {
+		return t1
+	}
 	t.list.Remove(t1)
 	return t1
+}
+
+func (t *ThreadSafeLL) GetList() *list.List {
+	return t.list
 }
 
 // Thread safe min heap, used to maintain our N linked list sliding windows. We need
@@ -55,12 +62,13 @@ func (t *ThreadSafeLL) TakeT1() *list.Element {
 // Since N replications are distributed, they will be eventually consistent, with some
 // latency in synchronization. A small rate of error and inconsistency is tolerable.
 type ThreadSafeMinHeap struct {
-	heap  heapElements
-	mutex sync.RWMutex
+	heap  *heapElements
+	mutex *sync.RWMutex
 }
 
 func NewThreadSafeMinHeap() *ThreadSafeMinHeap {
-	return &ThreadSafeMinHeap{heap: make(heapElements, 1)}
+	newHeap := make(heapElements, 0)
+	return &ThreadSafeMinHeap{heap: &newHeap, mutex: &sync.RWMutex{}}
 }
 
 // return # of node in our min heap
@@ -70,58 +78,72 @@ func (h *ThreadSafeMinHeap) Len() int {
 	return h.heap.Len()
 }
 
-// Add new LL head to our min heap, LL head will be from our N sliding windows
-func (h *ThreadSafeMinHeap) AddT1(t1 *list.Element) {
+// Add new LL to our min heap, LL will be from our N sliding windows
+func (h *ThreadSafeMinHeap) AddList(l1 *list.List) {
 	h.mutex.Lock()
 	defer h.mutex.Unlock()
-	heap.Push(h.heap, t1)
+	heap.Push(h.heap, l1)
 }
 
 // removes t1 from our min heap
-func (t *ThreadSafeMinHeap) TakeT1() *list.Element {
+func (t *ThreadSafeMinHeap) TakeT1() int64 {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 	// remove current t1, earliest time
-	t1 := heap.Pop(&t.heap).(*list.Element)
-	// get the next t in line in current LL
-	nextT := t1.Next()
-	// add back to our min heap to maintain N sliding windows
-	t.AddT1(nextT)
-	return t1
+	popedList := heap.Pop(t.heap).(*list.List)
+
+	// this check is if the Heap is empty or all the list (including the min list) are empty
+	if popedList != nil && popedList.Len() != 0 {
+		lowestList := popedList
+		// get the next t in line in current LL
+		t1 := lowestList.Front()
+		lowestList.Remove(lowestList.Front())
+		// add back to our min heap to maintain N sliding windows
+		heap.Push(t.heap, lowestList)
+		return t1.Value.(int64)
+	}
+
+	return -1
 }
 
 func (t *ThreadSafeMinHeap) GetT1() *list.Element {
 	t.mutex.RLock()
 	defer t.mutex.RUnlock()
-	return t.heap[0]
+	return (*t.heap)[0].Front()
 }
 
 // wrapper element for linked list elements
 // below are interface func required by container/heap implementation
 // Our heap is just an array of elements, and we using container/heap
 // heap.Push(h.heap, t1) to perform heapify. Similar to Java's heap
-type heapElements []*list.Element
+type heapElements []*list.List
 
 func (e heapElements) Len() int {
 	return len(e)
 }
 
 func (e heapElements) Less(i, j int) bool {
-	return e[i].Value.(int64) < e[j].Value.(int64)
+	// special case since the lists inside the heap could be empty
+	if e[i].Len() == 0 {
+		return false
+	} else if e[j].Len() == 0 {
+		return true
+	}
+	return e[i].Front().Value.(int64) < e[j].Front().Value.(int64)
 }
 
 func (e heapElements) Swap(i, j int) {
 	e[i], e[j] = e[j], e[i]
 }
 
-func (e heapElements) Push(x interface{}) {
-	e = append(e, x.(*list.Element))
+func (e *heapElements) Push(x any) {
+	*e = append(*e, x.(*list.List))
 }
 
-func (e heapElements) Pop() interface{} {
-	old := e
+func (e *heapElements) Pop() any {
+	old := *e
 	n := len(old)
 	x := old[n-1]
-	e = old[0 : n-1]
+	*e = old[0 : n-1]
 	return x
 }
