@@ -116,3 +116,10 @@ This module will be responsible for handling incoming sync requests, and broadca
 ### Client
 - client refers to code in server that is generated with make file, so run that before running it
 - run client from client folder with `go run testclient.go`
+
+## Performance expectations
+
+- 100 apikeys
+- 1,000,000 req / min / apikey
+- 99.99% of requests succeeds
+- latency less than 2ms (from request recieve to response)
