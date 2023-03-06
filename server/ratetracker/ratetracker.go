@@ -13,20 +13,22 @@ type SyncMsg struct {
 }
 
 type RateTracker struct {
-	id          int64
-	rtiByApiKey map[int64]*RateTrackerInstance
-	InSyncChan  chan *SyncMsg
-	OutSyncChan chan *SyncMsg
+	id                   int64
+	rtiByApiKey          map[int64]*RateTrackerInstance
+	InSyncChan           chan *SyncMsg
+	OutSyncChan          chan *SyncMsg
+	defaultMaxRequests   int64
+	defaultMaxTimePeriod int64
 }
 
-func NewRateTracker(id int64) *RateTracker {
-	inSyncChan := make(chan *SyncMsg)
-	outSyncChan := make(chan *SyncMsg)
+func NewRateTracker(id int64, defaultMaxRequests int64, defaultMaxTimePeriod int64) *RateTracker {
 	rt := RateTracker{
-		id:          id,
-		rtiByApiKey: make(map[int64]*RateTrackerInstance),
-		InSyncChan:  inSyncChan,
-		OutSyncChan: outSyncChan,
+		id:                   id,
+		rtiByApiKey:          make(map[int64]*RateTrackerInstance),
+		InSyncChan:           make(chan *SyncMsg),
+		OutSyncChan:          make(chan *SyncMsg),
+		defaultMaxRequests:   defaultMaxRequests,
+		defaultMaxTimePeriod: defaultMaxTimePeriod,
 	}
 	go rt.openInChannel()
 	return &rt
@@ -71,7 +73,7 @@ func (rt *RateTracker) syncRequest(syncMsg *SyncMsg) {
 func (rt *RateTracker) getOrCreateRti(apiKey int64) *RateTrackerInstance {
 	rti := rt.rtiByApiKey[apiKey]
 	if rti == nil {
-		newRti := NewRateTrackerInstance(10, 1000, apiKey)
+		newRti := NewRateTrackerInstance(rt.defaultMaxRequests, rt.defaultMaxTimePeriod, apiKey)
 		rt.rtiByApiKey[apiKey] = newRti
 		return newRti
 	}
