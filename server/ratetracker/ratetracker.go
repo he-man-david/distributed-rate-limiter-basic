@@ -1,6 +1,7 @@
 package ratetracker
 
 import (
+	"context"
 	"log"
 	"time"
 )
@@ -21,6 +22,10 @@ type RateTracker struct {
 	defaultMaxTimePeriod int64
 }
 
+var (
+	ctx = context.Background()
+)
+
 func NewRateTracker(id int64, defaultMaxRequests int64, defaultMaxTimePeriod int64) *RateTracker {
 	rt := RateTracker{
 		id:                   id,
@@ -36,8 +41,8 @@ func NewRateTracker(id int64, defaultMaxRequests int64, defaultMaxTimePeriod int
 
 // This is the main function used to determine if a request for an apiKey is allwoed or not
 // If the request is allowed a message is sent to the OutSyncChannel
-func (rt *RateTracker) AllowRequest(apiKey int64, timestamp int64) bool {
-	rti := rt.getOrCreateRti(apiKey)
+func (rt *RateTracker) AllowRequest(ctx context.Context, apiKey int64, timestamp int64) bool {
+	rti := rt.getOrCreateRti(ctx, apiKey)
 	allow, t1Popped := rti.AllowRequest(rt.id, timestamp)
 	if !allow {
 		return false
@@ -56,7 +61,7 @@ func (rt *RateTracker) openInChannel() {
 				log.Println("In channel is closed!")
 				return
 			}
-			rt.syncRequest(msg)
+			rt.syncRequest(ctx, msg)
 		default:
 			time.Sleep(time.Millisecond * 100)
 		}
@@ -64,13 +69,13 @@ func (rt *RateTracker) openInChannel() {
 }
 
 // used to sync message by recording request in a RateTrackerInstance
-func (rt *RateTracker) syncRequest(syncMsg *SyncMsg) {
-	rti := rt.getOrCreateRti(syncMsg.ApiKey)
+func (rt *RateTracker) syncRequest(ctx context.Context, syncMsg *SyncMsg) {
+	rti := rt.getOrCreateRti(ctx, syncMsg.ApiKey)
 	rti.RecordRequest(syncMsg.RatelimiterId, syncMsg.Timestamp, syncMsg.PopT1)
 }
 
 // gets (or creates if not existing) a RateTrackerInstance for an apiKey
-func (rt *RateTracker) getOrCreateRti(apiKey int64) *RateTrackerInstance {
+func (rt *RateTracker) getOrCreateRti(ctx context.Context, apiKey int64) *RateTrackerInstance {
 	rti := rt.rtiByApiKey[apiKey]
 	if rti == nil {
 		newRti := NewRateTrackerInstance(rt.defaultMaxRequests, rt.defaultMaxTimePeriod, apiKey)
