@@ -3,6 +3,7 @@ package synchronization
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 )
 
 type Sync struct {
+	id			*int
 	NodeClients map[int64]Sync_BroadcastServiceClient
 	NodeConns   map[int64]*grpc.ClientConn
 	rt          *ratetracker.RateTracker
@@ -18,24 +20,37 @@ type Sync struct {
 	UnimplementedSyncServer
 }
 
-func NewSyncImpl(rt *ratetracker.RateTracker) *Sync {
+func NewSyncImpl(rt *ratetracker.RateTracker, port *int) *Sync {
 	return &Sync{
 		NodeClients: make(map[int64]Sync_BroadcastServiceClient),
+		NodeConns:	 make(map[int64]*grpc.ClientConn),
 		rt:          rt,
+		id:			 port,
 	}
 }
 
 func (s *Sync) BroadcastService(sync_ Sync_BroadcastServiceServer) error {
 	go s.receiveBroadcast(sync_)
+	go s.SendBroadcast(sync_)
 	return nil
 }
 
 func (s *Sync) receiveBroadcast(sync_ Sync_BroadcastServiceServer) {
-	for {
-		msg, err := sync_.Recv()
-		if err != nil {
-			log.Printf("[Sync] error in broadcastService when receiving msg. ERR: %v", err)
+	msg, err := sync_.Recv()
+	if err != nil {
+		if err == io.EOF {
+			// Stream has been closed
+			log.Println("[Sync] stream closed")
+			return
 		}
+		log.Printf("[Sync] error in broadcastService when receiving msg. ERR: %v", err)
+		return
+	}
+	if msg == nil {
+		log.Println("[Sync] received NIL msg")
+		return
+	}
+	if msg != nil {
 		log.Printf("[Sync] received incoming msg: %v", msg)
 		// Pushing incoming msg as events to InSyncChannel in RateTracker service
 		// RateTracker service will handle these events coming in, and update ds
@@ -44,26 +59,27 @@ func (s *Sync) receiveBroadcast(sync_ Sync_BroadcastServiceServer) {
 	}
 }
 
-func (s *Sync) SendBroadcast(ctx context.Context, sync_ Sync_BroadcastServiceServer, msg *SyncMsg) {
-	for {
-		select {
-		case val, ok := <-s.rt.OutSyncChan:
-			if !ok {
-				log.Println("[Sync] RateTracker out sync channel closed, unable to broadcast")
-				return
-			}
-			for id, client := range s.NodeClients {
-				msg := SyncMsg{RatelimiterId: id, ApiKey: val.ApiKey, Timestamp: val.Timestamp}
-				go s.SendMsg(ctx, client, &msg)
-			}
-		default:
-			// OutSyncChan is empty, wait a bit before checking channel
-			time.Sleep(time.Millisecond * 100)
+func (s *Sync) SendBroadcast(sync_ Sync_BroadcastServiceServer) {
+	select {
+	case val, ok := <-s.rt.OutSyncChan:
+		if !ok {
+			log.Println("[Sync] RateTracker out sync channel closed, unable to broadcast")
+			return
 		}
+		log.Printf("Do I have a msg???? %v ", val)
+		out := *val
+		for id, client := range s.NodeClients {
+			msg := SyncMsg{RatelimiterId: id, ApiKey: out.ApiKey, Timestamp: out.Timestamp}
+			s.SendMsg(client, &msg)
+		}
+	default:
+		// OutSyncChan is empty, wait a bit before checking channel
+		time.Sleep(time.Millisecond * 100)
 	}
 }
 
-func (s *Sync) SendMsg(ctx context.Context, client Sync_BroadcastServiceClient, msg *SyncMsg) {
+func (s *Sync) SendMsg(client Sync_BroadcastServiceClient, msg *SyncMsg) {
+	log.Printf("[Sync] what the hell am I sending : %v", msg)
 	if err := client.Send(msg); err != nil {
 		log.Printf("[Sync] failed to broadcast msg to :%d, maybe node is down ERR: %v", msg.RatelimiterId, err)
 	}

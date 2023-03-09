@@ -19,12 +19,15 @@ var (
 func main() {
 	flag.Parse()
 
-	fmt.Printf("Starting Rate Limiter Service on port :: %d \n", *port)
+	fmt.Println("Starting Rate Limiter Service.....")
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", *port))
 	if err != nil {
 		log.Fatalf("[main] TCP failed to listen: %v", err)
 	}
 	defer lis.Close()
+
+	addr := lis.Addr().String()
+	fmt.Printf("\n Listening address %s \n", addr)
 
 	grpcServer := grpc.NewServer()
 
@@ -32,7 +35,7 @@ func main() {
 	rt := ratetracker.RateTracker{}
 
 	// registering Syncrhonization implementation
-	s := sync.NewSyncImpl(&rt)
+	s := sync.NewSyncImpl(&rt, port)
 	defer s.Shutdown()
 	sync.RegisterSyncServer(grpcServer, s)
 

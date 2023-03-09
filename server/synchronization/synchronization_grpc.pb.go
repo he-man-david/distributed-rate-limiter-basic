@@ -44,7 +44,7 @@ func (c *syncClient) BroadcastService(ctx context.Context, opts ...grpc.CallOpti
 
 type Sync_BroadcastServiceClient interface {
 	Send(*SyncMsg) error
-	CloseAndRecv() (*SyncAck, error)
+	Recv() (*SyncAck, error)
 	grpc.ClientStream
 }
 
@@ -56,10 +56,7 @@ func (x *syncBroadcastServiceClient) Send(m *SyncMsg) error {
 	return x.ClientStream.SendMsg(m)
 }
 
-func (x *syncBroadcastServiceClient) CloseAndRecv() (*SyncAck, error) {
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
+func (x *syncBroadcastServiceClient) Recv() (*SyncAck, error) {
 	m := new(SyncAck)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
@@ -100,7 +97,7 @@ func _Sync_BroadcastService_Handler(srv interface{}, stream grpc.ServerStream) e
 }
 
 type Sync_BroadcastServiceServer interface {
-	SendAndClose(*SyncAck) error
+	Send(*SyncAck) error
 	Recv() (*SyncMsg, error)
 	grpc.ServerStream
 }
@@ -109,7 +106,7 @@ type syncBroadcastServiceServer struct {
 	grpc.ServerStream
 }
 
-func (x *syncBroadcastServiceServer) SendAndClose(m *SyncAck) error {
+func (x *syncBroadcastServiceServer) Send(m *SyncAck) error {
 	return x.ServerStream.SendMsg(m)
 }
 
@@ -132,6 +129,7 @@ var Sync_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "BroadcastService",
 			Handler:       _Sync_BroadcastService_Handler,
+			ServerStreams: true,
 			ClientStreams: true,
 		},
 	},

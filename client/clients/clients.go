@@ -60,9 +60,10 @@ func (c * Clients) connect(port int) (proxy.ProxyClient, error) {
 func (c *Clients) registerNodes(ctx context.Context, start, end int) (error) {
 	for port := start; port <= end; port++ {
 		p := c.Proxies[port]
-		for i := start; i <= end; i++ {
-			if i != port {
-				res, err := p.RegisterNode(ctx, &proxy.RegisterNodeReq{RateLimiterId: int64(port), Port: int64(port)})
+		for peer := start; peer <= end; peer++ {
+			if peer != port {
+				log.Printf("[Testclient] registering node at port: %d with: %d", peer, port)
+				res, err := p.RegisterNode(ctx, &proxy.RegisterNodeReq{RateLimiterId: int64(peer), Port: int64(peer)})
 				if err != nil || res.Res != true {
 					return err
 				}
