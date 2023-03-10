@@ -21,7 +21,7 @@ func NewProxy(rt *ratetracker.RateTracker, sync *sync.Sync) *Proxy {
 }
 
 func (p *Proxy) RegisterNode(ctx context.Context, node *RegisterNodeReq) (*RegisterNodeResp, error) {
-	err := p.sync.RegisterNode(ctx, node.RateLimiterId, node.Port)
+	err := p.sync.RegisterNode(node.RateLimiterId, node.Port)
 	if err != nil {
 		return &RegisterNodeResp{Res: false}, err
 	}

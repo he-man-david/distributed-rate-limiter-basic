@@ -14,6 +14,8 @@ import (
 
 var (
 	port = flag.Int("port", 9000, "the port number for the TCP server")
+	maxrate = flag.Int("maxrate", 1000, "the max request per time period")
+	timeout = flag.Int("timeout", 60000, "the rate limite time period")
 )
 
 func main() {
@@ -32,15 +34,15 @@ func main() {
 	grpcServer := grpc.NewServer()
 
 	// creating RateTrackerImpl
-	rt := ratetracker.RateTracker{}
+	rt := ratetracker.NewRateTracker(int64(*port), int64(*maxrate), int64(*timeout))
 
 	// registering Syncrhonization implementation
-	s := sync.NewSyncImpl(&rt, port)
+	s := sync.NewSyncImpl(rt, port)
 	defer s.Shutdown()
 	sync.RegisterSyncServer(grpcServer, s)
 
 	// registering Proxy implementation
-	p := proxy.NewProxy(&rt, s)
+	p := proxy.NewProxy(rt, s)
 	proxy.RegisterProxyServer(grpcServer, p)
 
 	if err := grpcServer.Serve(lis); err != nil {

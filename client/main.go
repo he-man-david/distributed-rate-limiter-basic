@@ -20,7 +20,9 @@ func main() {
 	defer shutdown(c)
 	
 	log.Println(" *** Testing scenarios *** ")
-	sameKeyAllNode(c)
+	sendManyToOneNode(c)
+	
+	select{}
 }
 
 func shutdown(c *clients.Clients) {
@@ -35,5 +37,12 @@ func sameKeyAllNode(c *clients.Clients) {
 	key := 1111
 	for port := start; port <= end; port++ {
 		c.AllowRequest(port, key)
+	}
+}
+
+func sendManyToOneNode(c *clients.Clients) {
+	key := 2222
+	for i := 0; i < 20; i++ {
+		c.AllowRequest(int(8001), key)
 	}
 }
