@@ -43,7 +43,7 @@ We will use the sliding-window RL strategy, implemented using linked list for ea
 
 ## Calculations:
 
-If we assume that our rate limit is 10K request per minute per API_KEY, each rate limiter service will store 80KB of LL data per API_KEY. Which comes out to 80GB for 1mm users. Since our RL lives inside AG, and AG traffics will be partitioned via API_KEY, if the partition is 100K keys per AG, then our RL will only need 8GB of memory at the most. If partition is 25k keys, then 2 GB, and so on so forth.
+If we assume that our rate limit is 10K request per minute per API_KEY, each rate limiter service will store 80KB of LL data per API_KEY. Which comes out to 80GB for 1mm users. Since our RL lives inside application gateway, and AG traffics will be partitioned via API_KEY (assuming), if the partition is 100K keys per AG, then our RL will only need 8GB of memory at the most. If partition is 25k keys, then 2 GB, and so on so forth.
 
 ## High level design:
 
@@ -93,12 +93,11 @@ This module will be responsible for handling incoming sync requests, and broadca
 
 1. Rate limiter proxy
 2. Rate Module
-3. Policy Config Module
-4. Synchronization Module
-5. Rate Tracker Instance
-6. Support distributed RL & sync
-7. Deploy via minikube to test
-8. E2E testing
+3. Synchronization Module
+4. Rate Tracker Instance
+5. Support distributed RL & sync
+6. Node registration
+7. E2E testing
 
 ## Not in scope
 
@@ -106,20 +105,35 @@ This module will be responsible for handling incoming sync requests, and broadca
 2. We are not building a AG
 3. Not dealing with partioning for now
 
+## TODO
+
+1. Deploy via minikube to test
+2. Policy Config
+3. Adding load testing tools/library (maybe ~ these tools allow for limited local testing. To test 1mm request/min can be expensive)
 
 ## Dev info
 
 ### Server
+
 - the server is using protobuf schemas, so some of the code has to be generated using the make file before running server
 - run server from server folder with `go run main.go`
+- option --port flag, default 9000
 
-### Client
-- client refers to code in server that is generated with make file, so run that before running it
-- run client from client folder with `go run testclient.go`
+### Testing Client
+
+- Used for testing functionality. Sandbox playground
+- run client from client folder with `go run main.go`
 
 ## Performance expectations
 
-- 100 apikeys
+- 10,000 apikeys
 - 1,000,000 req / min / apikey
 - 99.99% of requests succeeds
 - latency less than 2ms (from request recieve to response)
+
+## Tradeoffs
+
+- This is more complex than simple bucket approach, but aims to be more accurate.
+- Assumes ApiKey paritioning of AG hosts (which embed rate limiter). Otherwise does not scale well.
+- Using a "connect to all" message broadcasting is fine if the number of nodes are low. It's simpler to implement, but will not scale if cluster becomes huge.
+- Using TCP for communication since we using linked list data struct for rate limiting, so the order of messages matter. If we were using bucket approach, UDP would work better.
