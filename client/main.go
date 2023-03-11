@@ -8,7 +8,7 @@ import (
 
 var (
 	start = 8001
-	end   = 8003
+	end   = 8002
 )
 
 func main() {
@@ -20,8 +20,9 @@ func main() {
 	defer shutdown(c)
 	
 	log.Println(" *** Testing scenarios *** ")
-	sendManyToOneNode(c)
-	
+	sameKeyAllNode(c)
+	sendManyToOneNode(c, 3)
+
 	select{}
 }
 
@@ -40,9 +41,9 @@ func sameKeyAllNode(c *clients.Clients) {
 	}
 }
 
-func sendManyToOneNode(c *clients.Clients) {
+func sendManyToOneNode(c *clients.Clients, count int) {
 	key := 2222
-	for i := 0; i < 20; i++ {
+	for i := 0; i < count; i++ {
 		c.AllowRequest(int(8001), key)
 	}
 }
