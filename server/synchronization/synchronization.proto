@@ -8,10 +8,10 @@ message SyncMsg {
     int64 timestamp = 3;
 }
 
-message SyncAck {
-    bool ack = 1;
+message Alive {
+    bool res = 1;
 }
 
 service Sync {
-    rpc BroadcastService(stream SyncMsg) returns (SyncAck) {};
+    rpc SyncService(stream SyncMsg) returns (stream Alive) {};
 }

@@ -2,7 +2,8 @@ package synchronization
 
 import (
 	"context"
-	"fmt"
+	"errors"
+	"io"
 	"log"
 	"time"
 
@@ -11,72 +12,23 @@ import (
 )
 
 type Sync struct {
-	NodeClients map[int64]Sync_BroadcastServiceClient
+	id			*int
+	NodeClients map[int64]Sync_SyncServiceClient
 	NodeConns   map[int64]*grpc.ClientConn
 	rt          *ratetracker.RateTracker
 
 	UnimplementedSyncServer
 }
 
-func NewSyncImpl(rt *ratetracker.RateTracker) *Sync {
-	return &Sync{
-		NodeClients: make(map[int64]Sync_BroadcastServiceClient),
+func NewSyncImpl(rt *ratetracker.RateTracker, port *int) *Sync {
+	s := &Sync{
+		NodeClients: make(map[int64]Sync_SyncServiceClient),
+		NodeConns:	 make(map[int64]*grpc.ClientConn),
 		rt:          rt,
+		id:			 port,
 	}
-}
 
-func (s *Sync) BroadcastService(sync_ Sync_BroadcastServiceServer) error {
-	go s.receiveBroadcast(sync_)
-	return nil
-}
-
-func (s *Sync) receiveBroadcast(sync_ Sync_BroadcastServiceServer) {
-	for {
-		msg, err := sync_.Recv()
-		if err != nil {
-			log.Printf("[Sync] error in broadcastService when receiving msg. ERR: %v", err)
-		}
-		log.Printf("[Sync] received incoming msg: %v", msg)
-		// Pushing incoming msg as events to InSyncChannel in RateTracker service
-		// RateTracker service will handle these events coming in, and update ds
-		syncMsg := ratetracker.SyncMsg{RatelimiterId: msg.RatelimiterId, ApiKey: msg.ApiKey, Timestamp: msg.Timestamp}
-		s.rt.InSyncChan <- &syncMsg
-	}
-}
-
-func (s *Sync) SendBroadcast(ctx context.Context, sync_ Sync_BroadcastServiceServer, msg *SyncMsg) {
-	for {
-		select {
-		case val, ok := <-s.rt.OutSyncChan:
-			if !ok {
-				log.Println("[Sync] RateTracker out sync channel closed, unable to broadcast")
-				return
-			}
-			for id, client := range s.NodeClients {
-				msg := SyncMsg{RatelimiterId: id, ApiKey: val.ApiKey, Timestamp: val.Timestamp}
-				go s.SendMsg(ctx, client, &msg)
-			}
-		default:
-			// OutSyncChan is empty, wait a bit before checking channel
-			time.Sleep(time.Millisecond * 100)
-		}
-	}
-}
-
-func (s *Sync) SendMsg(ctx context.Context, client Sync_BroadcastServiceClient, msg *SyncMsg) {
-	if err := client.Send(msg); err != nil {
-		log.Printf("[Sync] failed to broadcast msg to :%d, maybe node is down ERR: %v", msg.RatelimiterId, err)
-	}
-}
-
-func (s *Sync) RegisterNode(ctx context.Context, ratelimiterId int64, port int64) error {
-	// create connection to new node, and store conn and stream
-	newClient, err := s.createClient(ctx, port)
-	if err != nil {
-		return err
-	}
-	s.NodeClients[ratelimiterId] = newClient
-	return nil
+	return s
 }
 
 // shutdown cleanup of all open connections and streams
@@ -95,23 +47,91 @@ func (s *Sync) Shutdown() {
 	}
 }
 
-func (s *Sync) createClient(ctx context.Context, port int64) (Sync_BroadcastServiceClient, error) {
-	// create a gRPC client for other rate limiter nodes
-	conn, err := grpc.Dial(fmt.Sprintf(":%d", port), grpc.WithInsecure())
-	if err != nil {
-		log.Printf("[Sync] failed to connect to %d ERR: %v", port, err)
-		return nil, err
-	}
-	// add conn to map for cleanup during shutdown
-	s.NodeConns[port] = conn
+// SERVER
+func (s *Sync) SyncService(sync_ Sync_SyncServiceServer) error {
+	go s.receiveSyncFromClients(sync_)
+	go s.sendAliveToClients(sync_)
 
-	// Create sync client stream
-	cl := NewSyncClient(conn)
-	stream, err := cl.BroadcastService(ctx)
-	if err != nil {
-		log.Printf("[Sync] failed to create stream %d ERR: %v", port, err)
-		return nil, err
+	// Apparently I also need this select {} here to keep process open...
+	select {
+	// Exit on stream context done
+	case <-sync_.Context().Done():
+		return nil
 	}
+}
 
-	return stream, nil
+// SERVER receiver
+func (s *Sync) receiveSyncFromClients(sync_ Sync_SyncServiceServer) error {
+	for {
+		select {
+		// Exit on stream context done
+		case <-sync_.Context().Done():
+			return nil
+		default:
+			msg, err := sync_.Recv()
+			if err != nil {
+				if err == io.EOF {
+					// Stream has been closed
+					log.Println("[Sync] SERVER stream closed")
+					return err
+				}
+				log.Printf("[Sync] SERVER error in broadcastService when receiving msg. ERR: %v", err)
+				return err
+			}
+			if msg == nil {
+				e := "[Sync] SERVER received NIL msg"
+				log.Println(e)
+				return errors.New(e)
+			}
+			log.Printf("[Sync] SERVER received incoming msg: %v", msg)
+			// Pushing incoming msg as events to InSyncChannel in RateTracker service
+			// RateTracker service will handle these events coming in, and update ds
+			syncMsg := ratetracker.SyncMsg{RatelimiterId: msg.RatelimiterId, ApiKey: msg.ApiKey, Timestamp: msg.Timestamp}
+			s.rt.InSyncChan <- &syncMsg
+		}
+	}
+}
+
+// SERVER sender (ALIVE msg)
+func (s *Sync) sendAliveToClients(sync_ Sync_SyncServiceServer) error {
+	timer := time.NewTicker(5 * time.Second)
+
+	for {
+		select {
+			// Exit on stream context done
+			case <-sync_.Context().Done():
+				return nil
+			case <-timer.C:
+				// Start a ticker that executes every 5 seconds
+				msg := Alive{Res: true}
+				if err := sync_.Send(&msg); err != nil {
+					log.Printf("[Sync] SERVER failed to send ALIVE ERR: %v", err)
+					return err
+				}
+			default:
+				// no need to check all the time
+				time.Sleep(time.Millisecond * 500)
+		}
+	}
+}
+
+// When new nodes are started, and need to register its client
+func (s *Sync) RegisterNode(ctx context.Context, ratelimiterId int64, port int64) error {
+	// create conns with node server, and store conns
+	conn, err := s.createClient(ctx, ratelimiterId, port)
+	if err != nil {
+		log.Printf("[Sync] failed to create client connection while registering node ERR: %v", err)
+		return err
+	}
+	// create gRPC stream
+	stream, err := s.createStream(ctx, conn, ratelimiterId, port)
+	if err != nil {
+		log.Printf("[Sync] failed to create stream while registering node ERR: %v", err)
+		return err
+	}
+	log.Printf("[Sync] successfully registered stream client with :: %d", ratelimiterId)
+	// start goroutine for Client receiver/sender
+	go s.runClientReceiverAndSender(stream)
+
+	return nil
 }

@@ -2,20 +2,22 @@ package proxy
 
 import (
 	"context"
+	"log"
+	"time"
 
-	"github.com/he-man-david/distributed-rate-limiter-basic/server/rate"
+	"github.com/he-man-david/distributed-rate-limiter-basic/server/ratetracker"
 	sync "github.com/he-man-david/distributed-rate-limiter-basic/server/synchronization"
 )
 
 type Proxy struct {
-	ratelimiter *rate.RateLimiter
+	rt *ratetracker.RateTracker
 	sync        *sync.Sync
 
 	UnimplementedProxyServer
 }
 
-func NewProxy(ratelimiter *rate.RateLimiter, sync *sync.Sync) *Proxy {
-	return &Proxy{ratelimiter: ratelimiter, sync: sync}
+func NewProxy(rt *ratetracker.RateTracker, sync *sync.Sync) *Proxy {
+	return &Proxy{rt: rt, sync: sync}
 }
 
 func (p *Proxy) RegisterNode(ctx context.Context, node *RegisterNodeReq) (*RegisterNodeResp, error) {
@@ -27,5 +29,12 @@ func (p *Proxy) RegisterNode(ctx context.Context, node *RegisterNodeReq) (*Regis
 }
 
 func (p *Proxy) AllowRequest(ctx context.Context, req *AllowRequestReq) (*AllowRequestResp, error) {
-	return &AllowRequestResp{Res: true}, nil
+	log.Printf("[RateLimiter] rate limiting key: %d", req.ApiKey)
+	// epoch time in ms
+	t := time.Now().UnixNano() / int64(time.Millisecond)
+	// calling rate tracker allow request
+	res := p.rt.AllowRequest(ctx, req.ApiKey, t)
+	return &AllowRequestResp{Res: res}, nil
 }
+
+// TODO: Add resetRateLimiter -- for testing purpose, so after each test we can clear state

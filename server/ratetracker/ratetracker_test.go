@@ -1,6 +1,7 @@
 package ratetracker_test
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"testing"
@@ -20,6 +21,7 @@ type rtTestData struct {
 func TestRateTracker(t *testing.T) {
 	var wg sync.WaitGroup
 
+	ctx := context.Background()
 	apiKey := int64(1)
 	rt := ratetracker.NewRateTracker(1, 2, 1000)
 
@@ -47,7 +49,7 @@ func TestRateTracker(t *testing.T) {
 			}
 
 			// assert AllowRequest call
-			actualValue := rt.AllowRequest(apiKey, sequenceData.timestamp)
+			actualValue := rt.AllowRequest(ctx, apiKey, sequenceData.timestamp)
 			expectedValue := sequenceData.expectedValue
 			if !(actualValue == expectedValue) {
 				t.Errorf("Expected to find %v but found %v", expectedValue, actualValue)
