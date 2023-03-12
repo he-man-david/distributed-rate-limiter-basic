@@ -18,12 +18,11 @@ func main() {
 	}
 	// close all connections on shutdown
 	defer shutdown(c)
-	
-	log.Println(" *** Testing scenarios *** ")
-	sameKeyAllNode(c)
-	sendManyToOneNode(c, 3)
 
-	select{}
+	log.Println(" *** Testing scenarios *** ")
+	clients.TestExceedLimit(c)
+
+	select {}
 }
 
 func shutdown(c *clients.Clients) {

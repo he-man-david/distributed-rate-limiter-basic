@@ -3,6 +3,7 @@ package ratetracker
 import (
 	"container/heap"
 	"container/list"
+	"log"
 	"sync"
 )
 
@@ -40,13 +41,16 @@ func NewRateTrackerInstance(maxRequests int64, maxTimePeriodMs int64, apiKey int
 // if the request is allowed, it is recorded for future look ups
 // The return is a tuple of booleans indicated allowed and if the last T1 was removed
 func (rti *RateTrackerInstance) AllowRequest(nodeId int64, timestamp int64) (bool, bool) {
-	if rti.getRecordedRequestsCount() < rti.maxRequests {
+	count := rti.getRecordedRequestsCount()
+	if count < rti.maxRequests {
+		log.Printf("getRecordedRequestsCount() is = %d", count)
 		rti.RecordRequest(nodeId, timestamp, false)
 		return true, false
 	}
 
 	timeDiff := timestamp - rti.getT1()
 	if timeDiff < rti.maxTimePeriodMs {
+		// log.Printf("timeDiff is = %d", timeDiff)
 		return false, false
 	}
 
@@ -64,13 +68,18 @@ func (rti *RateTrackerInstance) RecordRequest(nodeId int64, timestamp int64, tak
 		newList.PushBack(timestamp)
 		heap.Push(&rti.earliestTimeLLMinHeap, newList)
 		rti.requestsByNode[nodeId] = newList
-	} else {
-		existingList.PushBack(timestamp)
+		existingList = newList
 	}
 
 	if takeT1 {
 		rti.takeT1NoLock()
 	}
+
+	if int64(existingList.Len()) >= rti.maxRequests {
+		return
+	}
+
+	existingList.PushBack(timestamp)
 }
 
 // Gets all the size of all requests accross all linked lists
@@ -89,7 +98,7 @@ func (rti *RateTrackerInstance) getT1() int64 {
 	rti.mutex.RLock()
 	defer rti.mutex.RUnlock()
 	if len(rti.earliestTimeLLMinHeap) == 0 || rti.earliestTimeLLMinHeap[0].Len() == 0 {
-		return -1
+		return 0
 	}
 	return rti.earliestTimeLLMinHeap[0].Front().Value.(int64)
 }
@@ -111,6 +120,20 @@ func (rti *RateTrackerInstance) takeT1NoLock() int64 {
 	// add back to our min heap if list is not empty to maintain min sliding windows
 	heap.Push(&rti.earliestTimeLLMinHeap, lowestList)
 	return t1.Value.(int64)
+}
+
+// Helper log
+func (rti *RateTrackerInstance) LogSelf() {
+	log.Printf("T1 = %d\n", rti.getT1())
+	log.Printf("Length of List = %d\n", rti.getRecordedRequestsCount())
+
+	for nodeId, list := range rti.requestsByNode {
+		log.Printf("Node ID = %d\n", nodeId)
+		log.Printf("Node requests count = %d \n", list.Len())
+		if list != nil && list.Len() > 0 {
+			log.Printf("Node T1 = %d \n", list.Front().Value)
+		}
+	}
 }
 
 // Function implementing the heap Interface function Len

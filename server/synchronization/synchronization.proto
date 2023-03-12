@@ -4,8 +4,9 @@ option go_package = "github.com/he-man-david/distributed-rate-limiter-basic/serv
 
 message SyncMsg {
     int64 ratelimiter_id = 1;
-    int64 api_key = 2;
-    int64 timestamp = 3;
+    int64 api_key        = 2;
+    int64 timestamp      = 3;
+    bool  pop_t1          = 4;
 }
 
 message Alive {

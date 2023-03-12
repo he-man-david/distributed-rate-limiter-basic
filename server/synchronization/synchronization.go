@@ -12,7 +12,7 @@ import (
 )
 
 type Sync struct {
-	id			*int
+	id          *int
 	NodeClients map[int64]Sync_SyncServiceClient
 	NodeConns   map[int64]*grpc.ClientConn
 	rt          *ratetracker.RateTracker
@@ -23,9 +23,9 @@ type Sync struct {
 func NewSyncImpl(rt *ratetracker.RateTracker, port *int) *Sync {
 	s := &Sync{
 		NodeClients: make(map[int64]Sync_SyncServiceClient),
-		NodeConns:	 make(map[int64]*grpc.ClientConn),
+		NodeConns:   make(map[int64]*grpc.ClientConn),
 		rt:          rt,
-		id:			 port,
+		id:          port,
 	}
 
 	return s
@@ -86,7 +86,7 @@ func (s *Sync) receiveSyncFromClients(sync_ Sync_SyncServiceServer) error {
 			log.Printf("[Sync] SERVER received incoming msg: %v", msg)
 			// Pushing incoming msg as events to InSyncChannel in RateTracker service
 			// RateTracker service will handle these events coming in, and update ds
-			syncMsg := ratetracker.SyncMsg{RatelimiterId: msg.RatelimiterId, ApiKey: msg.ApiKey, Timestamp: msg.Timestamp}
+			syncMsg := ratetracker.SyncMsg{RatelimiterId: msg.RatelimiterId, ApiKey: msg.ApiKey, Timestamp: msg.Timestamp, PopT1: msg.PopT1}
 			s.rt.InSyncChan <- &syncMsg
 		}
 	}
@@ -98,19 +98,20 @@ func (s *Sync) sendAliveToClients(sync_ Sync_SyncServiceServer) error {
 
 	for {
 		select {
-			// Exit on stream context done
-			case <-sync_.Context().Done():
-				return nil
-			case <-timer.C:
-				// Start a ticker that executes every 5 seconds
-				msg := Alive{Res: true}
-				if err := sync_.Send(&msg); err != nil {
-					log.Printf("[Sync] SERVER failed to send ALIVE ERR: %v", err)
-					return err
-				}
-			default:
-				// no need to check all the time
-				time.Sleep(time.Millisecond * 500)
+		// Exit on stream context done
+		case <-sync_.Context().Done():
+			return nil
+		case <-timer.C:
+			// Start a ticker that executes every 5 seconds
+			msg := Alive{Res: true}
+			if err := sync_.Send(&msg); err != nil {
+				log.Printf("[Sync] SERVER failed to send ALIVE ERR: %v", err)
+				return err
+			}
+		default:
+			// no need to check all the time
+			time.Sleep(time.Second * 1)
+			s.rt.LogState()
 		}
 	}
 }

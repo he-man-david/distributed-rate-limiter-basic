@@ -84,3 +84,9 @@ func (rt *RateTracker) getOrCreateRti(ctx context.Context, apiKey int64) *RateTr
 	}
 	return rti
 }
+
+func (rt *RateTracker) LogState() {
+	for _, rti := range rt.rtiByApiKey {
+		rti.LogSelf()
+	}
+}

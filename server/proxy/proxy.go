@@ -2,7 +2,6 @@ package proxy
 
 import (
 	"context"
-	"log"
 	"time"
 
 	"github.com/he-man-david/distributed-rate-limiter-basic/server/ratetracker"
@@ -10,8 +9,8 @@ import (
 )
 
 type Proxy struct {
-	rt *ratetracker.RateTracker
-	sync        *sync.Sync
+	rt   *ratetracker.RateTracker
+	sync *sync.Sync
 
 	UnimplementedProxyServer
 }
@@ -29,7 +28,7 @@ func (p *Proxy) RegisterNode(ctx context.Context, node *RegisterNodeReq) (*Regis
 }
 
 func (p *Proxy) AllowRequest(ctx context.Context, req *AllowRequestReq) (*AllowRequestResp, error) {
-	log.Printf("[RateLimiter] rate limiting key: %d", req.ApiKey)
+	// log.Printf("[Proxy] rate limiting key: %d", req.ApiKey)
 	// epoch time in ms
 	t := time.Now().UnixNano() / int64(time.Millisecond)
 	// calling rate tracker allow request
