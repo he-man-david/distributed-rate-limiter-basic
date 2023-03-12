@@ -3,6 +3,7 @@ package ratetracker
 import (
 	"context"
 	"log"
+	"sync"
 	"time"
 )
 
@@ -20,6 +21,7 @@ type RateTracker struct {
 	OutSyncChan          chan *SyncMsg
 	defaultMaxRequests   int64
 	defaultMaxTimePeriod int64
+	mutex                *sync.Mutex
 }
 
 var (
@@ -34,6 +36,7 @@ func NewRateTracker(id int64, defaultMaxRequests int64, defaultMaxTimePeriod int
 		OutSyncChan:          make(chan *SyncMsg),
 		defaultMaxRequests:   defaultMaxRequests,
 		defaultMaxTimePeriod: defaultMaxTimePeriod,
+		mutex:                &sync.Mutex{},
 	}
 	go rt.openInChannel()
 	return &rt
@@ -77,10 +80,9 @@ func (rt *RateTracker) syncRequest(ctx context.Context, syncMsg *SyncMsg) {
 // gets (or creates if not existing) a RateTrackerInstance for an apiKey
 func (rt *RateTracker) getOrCreateRti(ctx context.Context, apiKey int64) *RateTrackerInstance {
 	rti := rt.rtiByApiKey[apiKey]
+
 	if rti == nil {
-		newRti := NewRateTrackerInstance(rt.defaultMaxRequests, rt.defaultMaxTimePeriod, apiKey)
-		rt.rtiByApiKey[apiKey] = newRti
-		return newRti
+		return rt.lockAndMakeNewInstance(apiKey)
 	}
 	return rti
 }
@@ -89,4 +91,20 @@ func (rt *RateTracker) LogState() {
 	for _, rti := range rt.rtiByApiKey {
 		rti.LogSelf()
 	}
+}
+
+func (rt *RateTracker) lockAndMakeNewInstance(apiKey int64) *RateTrackerInstance {
+	rt.mutex.Lock()
+	defer rt.mutex.Unlock()
+
+	// When rate instance does not exist yet, and we are setting the key for the first time
+	// problem can occur where many concurrent req can come in to create Rti
+	// We need to have optimistic locking here, where we lock and when commiting a new Rti
+	// we check that it has not already been created.
+	if _rti := rt.rtiByApiKey[apiKey]; _rti != nil {
+		return _rti
+	}
+	newRti := NewRateTrackerInstance(rt.defaultMaxRequests, rt.defaultMaxTimePeriod, apiKey)
+	rt.rtiByApiKey[apiKey] = newRti
+	return newRti
 }
