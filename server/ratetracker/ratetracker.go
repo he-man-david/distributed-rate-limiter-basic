@@ -74,7 +74,7 @@ func (rt *RateTracker) openInChannel() {
 // used to sync message by recording request in a RateTrackerInstance
 func (rt *RateTracker) syncRequest(ctx context.Context, syncMsg *SyncMsg) {
 	rti := rt.getOrCreateRti(ctx, syncMsg.ApiKey)
-	rti.RecordRequest(syncMsg.RatelimiterId, syncMsg.Timestamp, syncMsg.PopT1)
+	rti.UpdateRequests(syncMsg.RatelimiterId, syncMsg.Timestamp, syncMsg.PopT1)
 }
 
 // gets (or creates if not existing) a RateTrackerInstance for an apiKey
@@ -104,7 +104,7 @@ func (rt *RateTracker) lockAndMakeNewInstance(apiKey int64) *RateTrackerInstance
 	if _rti := rt.rtiByApiKey[apiKey]; _rti != nil {
 		return _rti
 	}
-	newRti := NewRateTrackerInstance(rt.defaultMaxRequests, rt.defaultMaxTimePeriod, apiKey)
+	newRti := NewRateTrackerInstance(rt.defaultMaxRequests, rt.defaultMaxTimePeriod, apiKey, rt.id)
 	rt.rtiByApiKey[apiKey] = newRti
 	return newRti
 }

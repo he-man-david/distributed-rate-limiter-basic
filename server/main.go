@@ -15,7 +15,7 @@ import (
 var (
 	port    = flag.Int("port", 9000, "the port number for the TCP server")
 	maxrate = flag.Int("maxrate", 10, "the max request per time period")
-	timeout = flag.Int("timeout", 300000, "the rate limit time period in milli seconds")
+	timeout = flag.Int("timeout", 10000, "the rate limit time period in milli seconds")
 )
 
 func main() {

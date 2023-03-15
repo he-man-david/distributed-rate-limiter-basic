@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"context"
+	"log"
 	"time"
 
 	"github.com/he-man-david/distributed-rate-limiter-basic/server/ratetracker"
@@ -33,6 +34,11 @@ func (p *Proxy) AllowRequest(ctx context.Context, req *AllowRequestReq) (*AllowR
 	t := time.Now().UnixNano() / int64(time.Millisecond)
 	// calling rate tracker allow request
 	res := p.rt.AllowRequest(ctx, req.ApiKey, t)
+	if res {
+		log.Printf("Allow found, info:")
+		log.Printf("Timtestamp = %d", t)
+		p.rt.LogState()
+	}
 	return &AllowRequestResp{Res: res}, nil
 }
 

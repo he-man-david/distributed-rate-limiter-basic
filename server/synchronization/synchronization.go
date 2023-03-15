@@ -110,7 +110,7 @@ func (s *Sync) sendAliveToClients(sync_ Sync_SyncServiceServer) error {
 			}
 		default:
 			// no need to check all the time
-			time.Sleep(time.Second * 1)
+			time.Sleep(time.Second * 5)
 			s.rt.LogState()
 		}
 	}

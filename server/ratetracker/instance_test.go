@@ -14,7 +14,7 @@ type rtiTestData struct {
 }
 
 func TestRti(t *testing.T) {
-	rti := ratetracker.NewRateTrackerInstance(3, 1000, 123456)
+	rti := ratetracker.NewRateTrackerInstance(3, 1000, 123456, 0)
 
 	// sequnce of events
 	testSequece := []rtiTestData{

@@ -21,9 +21,10 @@ type RateTrackerInstance struct {
 	maxTimePeriodMs       int64
 	mutex                 *sync.RWMutex
 	apiKey                int64
+	localNodeId           int64
 }
 
-func NewRateTrackerInstance(maxRequests int64, maxTimePeriodMs int64, apiKey int64) *RateTrackerInstance {
+func NewRateTrackerInstance(maxRequests int64, maxTimePeriodMs int64, apiKey int64, localNodeId int64) *RateTrackerInstance {
 	requestsByNode := make(requestsByNode)
 	earliestTimeLLMinHeap := make(earliestTimeLLMinHeap, 0)
 	newRti := RateTrackerInstance{
@@ -33,6 +34,7 @@ func NewRateTrackerInstance(maxRequests int64, maxTimePeriodMs int64, apiKey int
 		maxTimePeriodMs:       maxTimePeriodMs,
 		mutex:                 &sync.RWMutex{},
 		apiKey:                apiKey,
+		localNodeId:           localNodeId,
 	}
 	return &newRti
 }
@@ -44,24 +46,25 @@ func (rti *RateTrackerInstance) AllowRequest(nodeId int64, timestamp int64) (boo
 	count := rti.getRecordedRequestsCount()
 	if count < rti.maxRequests {
 		log.Printf("getRecordedRequestsCount() is = %d", count)
-		rti.RecordRequest(nodeId, timestamp, false)
-		return true, false
+		recorded := rti.RecordRequest(nodeId, timestamp, false)
+		return recorded, false
 	}
 
-	timeDiff := timestamp - rti.getT1()
-	if timeDiff < rti.maxTimePeriodMs {
+	timeDiff := timestamp - rti.getT1Lock()
+	if timeDiff >= rti.maxTimePeriodMs {
 		// log.Printf("timeDiff is = %d", timeDiff)
-		return false, false
+		recored := rti.RecordRequest(nodeId, timestamp, true)
+		return recored, true
 	}
 
-	rti.RecordRequest(nodeId, timestamp, true)
-	return true, true
+	return false, false
 }
 
 // this function will just record a request in a sliding windows for a node
-func (rti *RateTrackerInstance) RecordRequest(nodeId int64, timestamp int64, takeT1 bool) {
+func (rti *RateTrackerInstance) RecordRequest(nodeId int64, timestamp int64, takeT1 bool) bool {
 	rti.mutex.Lock()
 	defer rti.mutex.Unlock()
+
 	existingList := rti.requestsByNode[nodeId]
 	if existingList == nil {
 		newList := list.New()
@@ -71,15 +74,47 @@ func (rti *RateTrackerInstance) RecordRequest(nodeId int64, timestamp int64, tak
 		existingList = newList
 	}
 
+	timeDiff := timestamp - rti.getT1NoLock()
+	if int64(existingList.Len()) >= rti.maxRequests && timeDiff < rti.maxTimePeriodMs {
+		return false
+	}
+
 	if takeT1 {
 		rti.takeT1NoLock()
 	}
 
-	if int64(existingList.Len()) >= rti.maxRequests {
+	existingList.PushBack(timestamp)
+	for existingList.Len() > int(rti.maxRequests) {
+		existingList.Remove(existingList.Front())
+	}
+	return true
+}
+
+// this function will just record a request with no checks in a sliding windows for a node
+func (rti *RateTrackerInstance) UpdateRequests(nodeId int64, timestamp int64, takeT1 bool) {
+	log.Printf("Updating for nodeId = %d", nodeId)
+	rti.mutex.Lock()
+	defer rti.mutex.Unlock()
+
+	existingList := rti.requestsByNode[nodeId]
+	if existingList == nil {
+		newList := list.New()
+		newList.PushBack(timestamp)
+		heap.Push(&rti.earliestTimeLLMinHeap, newList)
+		rti.requestsByNode[nodeId] = newList
+		// existingList = newList
 		return
 	}
 
+	if takeT1 {
+		rti.takeT1NoLock()
+	}
+
+	rti.LogSelf()
 	existingList.PushBack(timestamp)
+	for existingList.Len() > int(rti.maxRequests) {
+		existingList.Remove(existingList.Front())
+	}
 }
 
 // Gets all the size of all requests accross all linked lists
@@ -94,13 +129,29 @@ func (rti *RateTrackerInstance) getRecordedRequestsCount() int64 {
 }
 
 // Gets the earliest time across all linked lists
-func (rti *RateTrackerInstance) getT1() int64 {
+func (rti *RateTrackerInstance) getT1Lock() int64 {
 	rti.mutex.RLock()
 	defer rti.mutex.RUnlock()
+	return rti.getT1NoLock()
+}
+
+// Gets the earliest time across all linked lists
+func (rti *RateTrackerInstance) getT1NoLock() int64 {
 	if len(rti.earliestTimeLLMinHeap) == 0 || rti.earliestTimeLLMinHeap[0].Len() == 0 {
 		return 0
 	}
-	return rti.earliestTimeLLMinHeap[0].Front().Value.(int64)
+	globalT1 := rti.earliestTimeLLMinHeap[0].Front().Value.(int64)
+
+	var localT1 int64 = 0
+	localReqRecord := rti.requestsByNode[rti.localNodeId]
+	if localReqRecord != nil && localReqRecord.Len() > 0 {
+		localT1 = localReqRecord.Front().Value.(int64)
+	}
+
+	if localT1 > globalT1 {
+		return localT1
+	}
+	return globalT1
 }
 
 // Gets and removes the earliest time across all linked lists
@@ -124,9 +175,6 @@ func (rti *RateTrackerInstance) takeT1NoLock() int64 {
 
 // Helper log
 func (rti *RateTrackerInstance) LogSelf() {
-	log.Printf("T1 = %d\n", rti.getT1())
-	log.Printf("Length of List = %d\n", rti.getRecordedRequestsCount())
-
 	for nodeId, list := range rti.requestsByNode {
 		log.Printf("Node ID = %d\n", nodeId)
 		log.Printf("Node requests count = %d \n", list.Len())
